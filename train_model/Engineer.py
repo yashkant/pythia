@@ -117,6 +117,8 @@ def one_stage_train(myModel, data_reader_trn, my_optimizer,
     report_interval = cfg.training_parameters.report_interval
     snapshot_interval = cfg.training_parameters.snapshot_interval
     max_iter = cfg.training_parameters.max_iter
+    use_complement_loss = cfg.use_complement_loss
+
 
     avg_accuracy = 0
     accuracy_decay = 0.99
@@ -138,15 +140,28 @@ def one_stage_train(myModel, data_reader_trn, my_optimizer,
 
             my_optimizer.zero_grad()
             add_graph = False
+
+            # Deals with the primary and complement loss separately. 
             scores, total_loss, n_sample = compute_a_batch(batch, myModel, eval_mode=False,
-                                                           loss_criterion=loss_criterion,
+                                                           loss_criterion=loss_criterion[0],
                                                            add_graph=add_graph, log_dir=log_dir)
             total_loss.backward()
-            accuracy = scores / n_sample
-            avg_accuracy += (1 - accuracy_decay) * (accuracy - avg_accuracy)
-
             clip_gradients(myModel, i_iter, writer)
             my_optimizer.step()
+
+            if use_complement_loss:
+                my_optimizer.zero_grad()
+                scores, total_loss, n_sample = compute_a_batch(batch, myModel, eval_mode=False,
+                                                               loss_criterion=loss_criterion[1],
+                                                               add_graph=add_graph, log_dir=log_dir)
+                total_loss.backward()
+                clip_gradients(myModel, i_iter, writer)
+                my_optimizer.step()
+
+
+
+            accuracy = scores / n_sample
+            avg_accuracy += (1 - accuracy_decay) * (accuracy - avg_accuracy)
 
             if i_iter % report_interval == 0:
                 save_a_report(i_iter, total_loss.data[0], accuracy, avg_accuracy, report_timer,

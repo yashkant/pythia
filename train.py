@@ -207,7 +207,11 @@ if __name__ == '__main__':
 
     scheduler = get_optim_scheduler(my_optim)
 
-    my_loss = get_loss_criterion(cfg.loss)
+    loss_list = [cfg.loss]
+    
+    loss_list.append(cfg.complement_loss) if cfg.use_complement_loss else None
+
+    my_losses = get_loss_criterion(loss_list)
 
     data_set_val = prepare_eval_data_set(**cfg['data'], **cfg['model'])
 
