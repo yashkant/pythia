@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 from config.config_utils import finalize_config, dump_config
 from config.config import cfg
 from global_variables.global_variables import use_cuda
-from train_model.dataset_utils import prepare_train_data_set, \
+from dataset_utils.prepare_data import prepare_train_data_set, \
     prepare_eval_data_set, prepare_test_data_set
 from train_model.helper import build_model, run_model, print_result
 from train_model.Loss import get_loss_criterion
@@ -184,8 +184,20 @@ if __name__ == '__main__':
               {'params': model.image_feature_encode_list.parameters(),
                'lr': cfg.optimizer.par.lr * 0.1}]
 
-    my_optim = getattr(optim, cfg.optimizer.method)(
-        params, **cfg.optimizer.par)
+    optim_list = [getattr(optim, cfg.optimizer.method)(
+            params, **cfg.optimizer.par)]
+
+    if cfg.use_complement_loss: 
+        sec_params = [{'params': model.image_embedding_models_list.parameters()},
+              {'params': model.question_embedding_models.parameters()},
+              {'params': model.multi_modal_combine.parameters()},
+              {'params': model.classifier.parameters()},
+              {'params': model.image_feature_encode_list.parameters(),
+               'lr': cfg.complement_optimizer.par.lr * 0.1}]
+
+        optim_list.append(getattr(optim, cfg.complement_optimizer.method)(
+                sec_params, **cfg.complement_optimizer.par))
+
 
     i_epoch = 0
     i_iter = 0
@@ -199,17 +211,22 @@ if __name__ == '__main__':
             i_epoch = info['epoch']
             i_iter = info['iter']
             sd = info['state_dict']
-            op_sd = info['optimizer']
+            pop_sd = info['optimizer']
             my_model.load_state_dict(sd)
-            my_optim.load_state_dict(op_sd)
+            optim_list[0].load_state_dict(op_sd)
+            if 'complement_optimizer' in info and cfg.use_complement_loss:
+                sop_sd = info['complement_optimizer']
+                optim_list[1].load_state_dict(sop_sd)
             if 'best_val_accuracy' in info:
                 best_accuracy = info['best_val_accuracy']
 
-    scheduler = get_optim_scheduler(my_optim)
+    scheduler_list = [get_optim_scheduler(optim_list[0])]
 
     loss_list = [cfg.loss]
     
-    loss_list.append(cfg.complement_loss) if cfg.use_complement_loss else None
+    if cfg.use_complement_loss:
+        scheduler_list.append(get_optim_scheduler(optim_list[1]))
+        loss_list.append(cfg.complement_loss)
 
     my_losses = get_loss_criterion(loss_list)
 
@@ -228,10 +245,10 @@ if __name__ == '__main__':
     print("BEGIN TRAINING...")
     one_stage_train(my_model,
                     data_reader_trn,
-                    my_optim, my_loss, data_reader_eval=data_reader_val,
+                    optim_list, my_losses, data_reader_eval=data_reader_val,
                     snapshot_dir=snapshot_dir, log_dir=boards_dir,
                     start_epoch=i_epoch, i_iter=i_iter,
-                    scheduler=scheduler,best_val_accuracy=best_accuracy)
+                    scheduler_list=scheduler_list,best_val_accuracy=best_accuracy)
 
     print("BEGIN PREDICTING ON TEST/VAL set...")
 

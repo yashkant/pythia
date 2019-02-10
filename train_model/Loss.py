@@ -11,33 +11,28 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-#-----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Returns a list of losses 
-#-----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 def get_loss_criterion(loss_list):
+    """Returns a list of losses to be used.
 
-"""Returns a list of losses to be used. 
-   
-    Parameter
-    ----------
-    loss_list: List of the losses supported. Max length is 2. 
-"""
+        Parameter
+        ----------
+        loss_list: List of the losses supported. Max length is 2.
+    """
     loss_criterions = []
-
     if len(loss_list) == 2:
-        if loss_config is not 'softmaxKL':
+        if loss_list[0] is not 'softmaxKL':
             print('Training with Complement Objective only supports softmaxKL\
              as the primary loss, else secondary loss will be ignored.\
-             Current primary loss is: ', loss_config )
+             Current primary loss is: ', loss_config)
             del loss_list[1]
     elif len(loss_list) > 2:
         raise NotImplementedError
 
-
-
     for loss_config in loss_list:
-
         if loss_config == 'logitBCE':
             loss_criterion = LogitBinaryCrossEntropy()
         elif loss_config == 'softmaxKL':
@@ -46,31 +41,28 @@ def get_loss_criterion(loss_list):
             loss_criterion = wrong_loss()
         elif loss_config == 'combined':
             loss_criterion = CombinedLoss()
-        elif loss_config = 'complementEntropy':
+        elif loss_config == 'complementEntropy':
             loss_criterion = ComplementCrossEntropy()
         else:
             raise NotImplementedError
-
         loss_criterions.append(loss_criterion)
-
     return loss_criterions
-
 
 
 """ Losses are enclosed within nn.Module sub-classes. 
 
     Parameters
     ----------
-    pred_score: Tensor of shape [N,K] with N elements, and K output labels
-    target_score: Tensor of shape [N,K] with N elements, and K output labels
+    pred_score: Tensor of size [N,K] with logits
+    target_score: Tensor of size [N,K] with soft scores. 
 
     Returns
     ----------
-    loss: Tensor of shape [N,1], normalized only across elements(N).
+    loss: Single valued tensor, normalized only across the batch.
 """
 
 
-class LogitBinaryCrossEntropy(nn.Module)
+class LogitBinaryCrossEntropy(nn.Module):
     def __init__(self):
         super(LogitBinaryCrossEntropy, self).__init__()
 
@@ -80,7 +72,6 @@ class LogitBinaryCrossEntropy(nn.Module)
                                                   size_average=True)
         loss = loss * target_score.size(1)
         return loss
-
 
 
 def kl_div(log_x, y):
@@ -93,16 +84,24 @@ def kl_div(log_x, y):
     return torch.sum(res, dim=1, keepdim=True)
 
 
-def complement_entropy(x,y):
+def complement_entropy(x, y):
     y_is_0 = torch.eq(y.data, 0)
-    x_remove_0.data = x.clone()
+    x_remove_0 = x.clone()
     x_remove_0.data.masked_fill_(y_is_0, 0)
-    x_remove_0_sum = 1-torch.sum(x_remove_0, dim=1, keepdim = True)
-    x = x/x_remove_0_sum # Divide [N,K] tensor with [N,1] tensor
+    x_remove_0_sum = torch.sum(x_remove_0, dim=1, keepdim=True)
+    x = x / (1 - x_remove_0_sum)  # Divide [N,K] tensor with [N,1] tensor
     log_x = torch.log(x)
-    loss = x*log_x # [N,K] tensor with each element storing loss for each label
-
-    return torch.sum(loss, dim=1, keepdim=True) # Sum the loss over the labels
+    new_x = x * log_x  # [N,K] tensor with each element storing loss for each label
+    loss = torch.zeros(x.size())  # Remove non-zero labels loss
+    loss.data.masked_scatter(y_is_0, new_x.type(torch.FloatTensor))
+    num_labels = y.size()[1]
+    zero_labels = torch.sum(y_is_0, dim=1, keepdim=True).float()
+    non_zero_labels = num_labels - zero_labels
+    zero_labels.masked_fill_(torch.eq(zero_labels.data, 0), 1e-7)
+    normalize = non_zero_labels / zero_labels
+    zero_labels.masked_fill_(torch.eq(zero_labels.data, 0), 0)
+    loss = loss * normalize
+    return torch.sum(loss, dim=1, keepdim=True)  # Sum the loss over the labels
 
 
 class weighted_softmax_loss(nn.Module):
@@ -122,24 +121,21 @@ class weighted_softmax_loss(nn.Module):
         return loss
 
 
-class ComplementCrossEntropy(nn.Module)
-""" Complementary loss that maximizes entropy of non-ground truth
-    classes.
-
-    This loss was proposed to complement the multi-class classfication loss.
-
-    Open-review link : https://openreview.net/pdf?id=HyM7AiA5YX 
-
-    It can be extended (hopefully) to multi-label classfication problems while
-    using Softmax KL divergence loss. 
-
-    Since while using softmax KL divergence loss zero labels do not directly 
-    contribute to the training, this complementary loss could be used. 
-
-    Instead of directly combining this loss, we alternate between the primary 
-    and the complement loss while training.  
-
-"""
+class ComplementCrossEntropy(nn.Module):
+    """ Complement Entropy that maximizes entropy of non-ground truth
+        labels. It was proposed to complement the classification loss.
+    
+        Paper Link : https://openreview.net/pdf?id=HyM7AiA5YX 
+    
+        The same approach can be extended to multi-label classfication problems
+        while using Softmax KL divergence loss. 
+    
+        Since while using softmax KL divergence loss zero labels do not directly 
+        contribute to the training, this complementary loss could be used. 
+    
+        Instead of directly combining this loss, we alternate between the primary 
+        and the complement loss while training.  
+    """
 
     def __init__(self):
         super(ComplementCrossEntropy, self).__init__()
@@ -148,13 +144,12 @@ class ComplementCrossEntropy(nn.Module)
         tar_sum = torch.sum(target_score, dim=1, keepdim=True)
         tar_sum_is_0 = torch.eq(tar_sum, 0)
         tar_sum.masked_fill_(tar_sum_is_0, 1.0e-06)
-        tar = target_score / tar_sum 
+        tar = target_score / tar_sum
 
         res = F.softmax(pred_score, dim=1)
         loss = complement_entropy(res, tar)
-        loss = torch.sum(loss) / loss.size(0) # Normalize across elements
+        loss = torch.sum(loss) / loss.size(0)
         return loss
-
 
 
 class SoftmaxKlDivLoss(nn.Module):

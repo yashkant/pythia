@@ -80,7 +80,7 @@ __C.complement_loss = 'complementEntropy'
 # optimizer options:
 # --------------------------------------------------------------------------- #
 __C.optimizer = ModelParPair('Adamax')
-
+__C.complement_optimizer = ModelParPair('Adamax')
 
 # --------------------------------------------------------------------------- #
 # model options: Note default is our
