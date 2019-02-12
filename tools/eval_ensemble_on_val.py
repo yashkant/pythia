@@ -9,7 +9,7 @@
 import glob
 import sys
 import yaml
-from train_model.dataset_utils import prepare_eval_data_set
+from dataset_utils.prepare_data import prepare_eval_data_set
 from train_model.helper import build_model, run_model
 import torch
 from torch.utils.data import DataLoader

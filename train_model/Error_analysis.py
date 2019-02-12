@@ -10,7 +10,7 @@ import yaml
 import argparse
 from torch.utils.data import DataLoader
 from train_model.model_factory import is_one_stageModel
-from train_model.dataset_utils import prepare_eval_data_set
+from dataset_utils.prepare_data import prepare_eval_data_set
 from torch.autograd import Variable
 from global_variables.global_variables import use_cuda
 import torch

@@ -10,10 +10,20 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+""" Losses are enclosed within nn.Module sub-classes. 
 
-# -----------------------------------------------------------------------------
-# Returns a list of losses 
-# -----------------------------------------------------------------------------
+    Parameters
+    ----------
+    pred_score: Tensor of size [N,K] with logits
+    target_score: Tensor of size [N,K] with target scores
+    
+    With N samples in each batch and K label categories
+    
+    Returns
+    ----------
+    loss: Single valued tensor, normalized only across the batch.
+"""
+
 
 def get_loss_criterion(loss_list):
     """Returns a list of losses to be used.
@@ -27,7 +37,7 @@ def get_loss_criterion(loss_list):
         if loss_list[0] is not 'softmaxKL':
             print('Training with Complement Objective only supports softmaxKL\
              as the primary loss, else secondary loss will be ignored.\
-             Current primary loss is: ', loss_config)
+             Current primary loss is: ', loss_list[0])
             del loss_list[1]
     elif len(loss_list) > 2:
         raise NotImplementedError
@@ -47,19 +57,6 @@ def get_loss_criterion(loss_list):
             raise NotImplementedError
         loss_criterions.append(loss_criterion)
     return loss_criterions
-
-
-""" Losses are enclosed within nn.Module sub-classes. 
-
-    Parameters
-    ----------
-    pred_score: Tensor of size [N,K] with logits
-    target_score: Tensor of size [N,K] with soft scores. 
-
-    Returns
-    ----------
-    loss: Single valued tensor, normalized only across the batch.
-"""
 
 
 class LogitBinaryCrossEntropy(nn.Module):
@@ -127,14 +124,17 @@ class ComplementCrossEntropy(nn.Module):
     
         Paper Link : https://openreview.net/pdf?id=HyM7AiA5YX 
     
-        The same approach can be extended to multi-label classfication problems
-        while using Softmax KL divergence loss. 
+        The same approach can be extended to multi-label classification problems
+        with Softmax KL divergence loss.
+
+        Report Link : TODO
     
-        Since while using softmax KL divergence loss zero labels do not directly 
-        contribute to the training, this complementary loss could be used. 
+        When using Softmax KL divergence loss predictions for ground truth zero
+        labels do not directly contribute to the training, this complementary
+        loss could be used.
     
-        Instead of directly combining this loss, we alternate between the primary 
-        and the complement loss while training.  
+        Instead of directly combining this loss, we alternate between the
+        primary and the complement objective while training.
     """
 
     def __init__(self):
@@ -185,9 +185,10 @@ class wrong_loss(nn.Module):
 
 
 class CombinedLoss(nn.Module):
-    def __init__(self, weight_softmax):
+    def __init__(self, weight_softmax, weight_complement=None):
         super(CombinedLoss, self).__init__()
         self.weight_softmax = weight_softmax
+        self.weight_complement = weight_complement
 
     def forward(self, pred_score, target_score):
         tar_sum = torch.sum(target_score, dim=1, keepdim=True)
@@ -205,5 +206,11 @@ class CombinedLoss(nn.Module):
         loss2 *= target_score.size(1)
 
         loss = self.weight_softmax * loss1 + loss2
+
+        if self.weight_complement is not None:
+            res = F.softmax(pred_score, dim=1)
+            loss3 = complement_entropy(res, tar)
+            loss3 = torch.sum(loss3) / loss3.size(0)
+            loss += self.weight_complement*loss3
 
         return loss
