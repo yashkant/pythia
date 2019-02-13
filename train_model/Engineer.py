@@ -249,10 +249,8 @@ def evaluate_a_batch(batch, myModel, loss_criterion):
     return predicted_scores / n_sample, total_loss.data[0]
 
 
-def compute_a_batch(batch: object, my_model: object, eval_mode: object,
-                    loss_criterion: object = None,
-                    add_graph: object = False,
-                    log_dir: object = None) -> object:
+def compute_a_batch(batch, my_model, eval_mode, loss_criterion=None,
+                                            add_graph=False, log_dir=None):
     obs_res = batch['ans_scores']
     obs_res = Variable(obs_res.type(torch.FloatTensor))
     if use_cuda:
