@@ -78,14 +78,14 @@ def save_a_report(i_iter,
         val_comp_loss = val_losses[1]
         train_comp_loss = train_losses[1]
 
-    print("iter:", i_iter, "train_loss: %.4f" % train_loss.item(),
-          "train_comp_loss: %.4f" % train_comp_loss.item()
+    print("iter:", i_iter, "train_loss: %.4f" % train_loss.data[0],
+          "train_comp_loss: %.4f" % train_comp_loss.data[0]
           if train_comp_loss is not None else "",
           " train_score: %.4f" % train_acc,
           " avg_train_score: %.4f" % train_avg_acc,
           "val_score: %.4f" % val_acc,
-          "val_loss: %.4f" % val_loss.item(),
-          "val_comp_loss: %.4f" % val_comp_loss.item()
+          "val_loss: %.4f" % val_loss.data[0],
+          "val_comp_loss: %.4f" % val_comp_loss.data[0]
           if val_comp_loss is not None else "",
           "time(s): % s" % report_timer.end())
 
@@ -96,7 +96,7 @@ def save_a_report(i_iter,
     writer.add_scalar('train_score', train_acc, i_iter)
     writer.add_scalar('train_score_avg', train_avg_acc, i_iter)
     writer.add_scalar('val_score', val_score, i_iter)
-    writer.add_scalar('val_loss', val_loss.item(), i_iter)
+    writer.add_scalar('val_loss', val_loss.data[0], i_iter)
 
     if train_comp_loss is not None:
         writer.add_scalar('train_comp_loss', train_comp_loss, i_iter)
@@ -208,6 +208,7 @@ def one_stage_train(model,
             i_iter += 1
             if i_iter > max_iter:
                 break
+            print("epoch:", iepoch, "iter:", i_iter, "max_iter:", max_iter)
             losses = []
             scheduler_list[0].step(i_iter)
 
@@ -351,11 +352,11 @@ def one_stage_eval_model(data_reader_eval, model, loss_criterions=None):
         n_sample_tot += n_sample
         if temp_losses is not None:
             if isinstance(temp_losses, list):
-                losses[0] += temp_losses[0].item() * n_sample
+                losses[0] += temp_losses[0].data[0] * n_sample
                 if len(temp_losses) == 2:
-                    losses[1] = temp_losses[1].item() * n_sample
+                    losses[1] = temp_losses[1].data[0] * n_sample
             else:
-                losses[0] += temp_losses.item() * n_sample
+                losses[0] += temp_losses.data[0] * n_sample
 
     if isinstance(loss_criterions, nn.Module):
         losses = losses[0] / n_sample_tot  # send a single value not list
