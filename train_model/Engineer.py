@@ -16,6 +16,10 @@ from tensorboardX import SummaryWriter
 from global_variables.global_variables import use_cuda
 from config.config import cfg
 from tools.timer import Timer
+from torch import autograd
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+import numpy as np
 
 
 def masked_unk_softmax(x, dim, mask_idx):
@@ -36,21 +40,63 @@ def compute_score_with_logits(logits, labels):
     return scores
 
 
-def clip_gradients(model, i_iter, writer):
-    max_grad_l2_norm = cfg.training_parameters.max_grad_l2_norm
-    clip_norm_mode = cfg.training_parameters.clip_norm_mode
+def clip_gradients(model, i_iter, writer, grads_label):
+
+    if grads_label == 'primary':
+        max_grad_l2_norm = cfg.training_parameters.max_grad_l2_norm
+        clip_norm_mode = cfg.training_parameters.clip_norm_mode
+    elif grads_label == 'complement':
+        max_grad_l2_norm = cfg.training_parameters.complement_max_grad_l2_norm
+        clip_norm_mode = cfg.training_parameters.complement_clip_norm_mode
+    else:
+        raise NotImplementedError
+
     if max_grad_l2_norm is not None:
         if clip_norm_mode == 'all':
-            norm = nn.utils.clip_grad_norm(model.parameters(),
-                                           max_grad_l2_norm)
-            writer.add_scalar('grad_norm', norm, i_iter)
+            norm = nn.utils.clip_grad_norm_(model.parameters(),
+                                            max_grad_l2_norm)
+            writer.add_scalar('grad_norm_' + grads_label, norm, i_iter)
         elif clip_norm_mode == 'question':
-            norm = nn.utils.clip_grad_norm(
+            norm = nn.utils.clip_grad_norm_(
                 model.module.question_embedding_models.parameters(),
                 max_grad_l2_norm)
-            writer.add_scalar('question_grad_norm', norm, i_iter)
+            writer.add_scalar('question_grad_norm_' + grads_label, norm, i_iter)
         else:
             raise NotImplementedError
+
+
+def plot_grad_flow(named_parameters):
+    '''Plots the gradients flowing through different layers in the net during training.
+    Can be used for checking for possible gradient vanishing / exploding problems.
+
+    Usage: Plug this function in Trainer class after loss.backwards() as
+    "plot_grad_flow(self.model.named_parameters())" to visualize the gradient flow'''
+    ave_grads = []
+    max_grads = []
+    layers = []
+    for n, p in named_parameters:
+        if (p.requires_grad) and ("bias" not in n):
+            layers.append(n)
+            ave_grads.append(p.grad.abs().mean())
+            print("Print grads:", p.grad.abs())
+            max_grads.append(p.grad.abs().max())
+    plt.bar(np.arange(len(max_grads)), max_grads, alpha=0.1, lw=1, color="c")
+    plt.bar(np.arange(len(max_grads)), ave_grads, alpha=0.1, lw=1, color="b")
+    plt.hlines(0, 0, len(ave_grads) + 1, lw=2, color="k")
+    plt.xticks(range(0, len(ave_grads), 1), layers, rotation="vertical")
+    plt.xlim(left=0, right=len(ave_grads))
+    plt.ylim(bottom=-0.001, top=0.02)  # zoom in on the lower gradient regions
+    plt.xlabel("Layers")
+    plt.ylabel("average gradient")
+    plt.title("Gradient flow")
+    plt.grid(True)
+    plt.legend([Line2D([0], [0], color="c", lw=4),
+                Line2D([0], [0], color="b", lw=4),
+                Line2D([0], [0], color="k", lw=4)],
+               ['max-gradient', 'mean-gradient', 'zero-gradient'])
+    plt.show(block=False)
+    plt.pause(3)
+    plt.close()
 
 
 def save_a_report(i_iter,
@@ -78,14 +124,14 @@ def save_a_report(i_iter,
         val_comp_loss = val_losses[1]
         train_comp_loss = train_losses[1]
 
-    print("iter:", i_iter, "train_loss: %.4f" % train_loss.data[0],
-          "train_comp_loss: %.4f" % train_comp_loss.data[0]
+    print("iter:", i_iter, "train_loss: %.4f" % train_loss.item(),
+          "train_comp_loss: %.4f" % train_comp_loss.item()
           if train_comp_loss is not None else "",
           " train_score: %.4f" % train_acc,
           " avg_train_score: %.4f" % train_avg_acc,
           "val_score: %.4f" % val_acc,
-          "val_loss: %.4f" % val_loss.data[0],
-          "val_comp_loss: %.4f" % val_comp_loss.data[0]
+          "val_loss: %.4f" % val_loss.item(),
+          "val_comp_loss: %.4f" % val_comp_loss.item()
           if val_comp_loss is not None else "",
           "time(s): % s" % report_timer.end())
 
@@ -95,8 +141,8 @@ def save_a_report(i_iter,
     writer.add_scalar('train_loss', train_loss, i_iter)
     writer.add_scalar('train_score', train_acc, i_iter)
     writer.add_scalar('train_score_avg', train_avg_acc, i_iter)
-    writer.add_scalar('val_score', val_score, i_iter)
-    writer.add_scalar('val_loss', val_loss.data[0], i_iter)
+    writer.add_scalar('val_score', val_acc, i_iter)
+    writer.add_scalar('val_loss', val_loss.item(), i_iter)
 
     if train_comp_loss is not None:
         writer.add_scalar('train_comp_loss', train_comp_loss, i_iter)
@@ -208,24 +254,34 @@ def one_stage_train(model,
             i_iter += 1
             if i_iter > max_iter:
                 break
-            print("epoch:", iepoch, "iter:", i_iter, "max_iter:", max_iter)
             losses = []
             scheduler_list[0].step(i_iter)
+            show = ((i_iter + 1) % 10 == 0)
 
             optimizer_list[0].zero_grad()
             add_graph = False
 
-            scores, total_loss, n_sample = compute_a_batch(batch,
-                                                           model,
-                                                           eval_mode=False,
-                                                           loss_criterions=
-                                                           loss_criterions[0],
-                                                           add_graph=add_graph,
-                                                           log_dir=log_dir)
-            total_loss.backward()
-            clip_gradients(model, i_iter, writer)
+            with autograd.detect_anomaly():
+                scores, total_loss, n_sample = compute_a_batch(batch,
+                                                               model,
+                                                               eval_mode=False,
+                                                               loss_criterions=
+                                                               loss_criterions[
+                                                                   0],
+                                                               add_graph=add_graph,
+                                                               log_dir=log_dir,
+                                                               iter=i_iter)
+                total_loss.backward()
+
+            # if show:
+            #    plot_grad_flow(model.named_parameters())
+            clip_gradients(model, i_iter, writer, 'primary')
             optimizer_list[0].step()
             losses.append(total_loss)
+            optimizer_list[0].zero_grad()
+
+            # if show:
+            #    plot_grad_flow(model.named_parameters())
 
             # ------------------------------------------------------------------
             # Perform the update with complement loss
@@ -233,16 +289,24 @@ def one_stage_train(model,
             if use_complement_loss:
                 scheduler_list[1].step(i_iter)
                 optimizer_list[1].zero_grad()
-                _, comp_loss, _ = compute_a_batch(batch,
-                                                  model,
-                                                  eval_mode=False,
-                                                  loss_criterions=
-                                                  loss_criterions[1],
-                                                  add_graph=add_graph,
-                                                  log_dir=log_dir)
-                comp_loss.backward()
-                clip_gradients(model, i_iter, writer)
-                optimizer_list[1].step()
+                # --------------------------------------------------------------
+                # Check gradient Anomaly (i.e. Nan gradients)
+                # --------------------------------------------------------------
+                with autograd.detect_anomaly():
+                    _, comp_loss, _ = compute_a_batch(batch,
+                                                      model,
+                                                      eval_mode=False,
+                                                      loss_criterions=
+                                                      loss_criterions[1],
+                                                      add_graph=add_graph,
+                                                      log_dir=log_dir,
+                                                      iter=i_iter)
+                    comp_loss.backward()
+                # if show:
+                #    plot_grad_flow(model.named_parameters())
+                clip_gradients(model, i_iter, writer, 'complement')
+                # optimizer_list[1].step()
+                optimizer_list[1].zero_grad()
                 losses.append(comp_loss)
 
             accuracy = scores / n_sample
@@ -305,7 +369,7 @@ def evaluate_a_batch(batch, model, loss_criterions):
 
 
 def compute_a_batch(batch, my_model, eval_mode, loss_criterions=None,
-                    add_graph=False, log_dir=None):
+                    add_graph=False, log_dir=None, iter=None):
     """
     Parameters
     ----------
@@ -327,9 +391,9 @@ def compute_a_batch(batch, my_model, eval_mode, loss_criterions=None,
         if isinstance(loss_criterions, list):
             losses = []
             for loss in loss_criterions:
-                losses.append(loss(logit_res, obs_res))
+                losses.append(loss(logit_res, obs_res, iter))
         elif isinstance(loss_criterions, nn.Module):
-            losses = loss_criterions(logit_res, obs_res)
+            losses = loss_criterions(logit_res, obs_res, iter)
 
     return predicted_scores, losses, n_sample
 
@@ -352,16 +416,16 @@ def one_stage_eval_model(data_reader_eval, model, loss_criterions=None):
         n_sample_tot += n_sample
         if temp_losses is not None:
             if isinstance(temp_losses, list):
-                losses[0] += temp_losses[0].data[0] * n_sample
+                losses[0] += temp_losses[0].item() * n_sample
                 if len(temp_losses) == 2:
-                    losses[1] = temp_losses[1].data[0] * n_sample
+                    losses[1] = temp_losses[1].item() * n_sample
             else:
-                losses[0] += temp_losses.data[0] * n_sample
+                losses[0] += temp_losses.item() * n_sample
 
     if isinstance(loss_criterions, nn.Module):
         losses = losses[0] / n_sample_tot  # send a single value not list
     elif isinstance(loss_criterions, list):
-        losses = [loss/n_sample_tot for loss in losses]
+        losses = [loss / n_sample_tot for loss in losses]
     else:
         losses = None  # loss_criterions is none
 

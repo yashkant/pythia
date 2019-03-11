@@ -140,6 +140,8 @@ class top_down_attention(nn.Module):
         joint_feature = self.modal_combine(image_feat, question_embedding)
         # N x K x n_att
         raw_attention = self.transform(joint_feature)
+        # print("raw_atten shape: ", raw_attention.shape, raw_attention.type())
+        # print("Nan Check: ", (raw_attention != raw_attention).any())
 
         if self.normalization.lower() == 'softmax':
             attention = F.softmax(raw_attention, dim=1)
@@ -147,7 +149,11 @@ class top_down_attention(nn.Module):
                 masked_attention = self._mask_attentions(attention, image_locs)
                 masked_attention_sum = torch.sum(masked_attention,
                                                  dim=1, keepdim=True)
-                masked_attention = masked_attention / masked_attention_sum
+                # print("masked_attention_sum shape: ", masked_attention_sum.shape, masked_attention.type())
+                # print("Nan Check: ", (masked_attention_sum != masked_attention_sum).any())
+                # print("Mased_attention_sum: ", masked_attention_sum)
+                masked_attention = \
+                    masked_attention / (masked_attention_sum + 1e-7)
             else:
                 masked_attention = attention
 

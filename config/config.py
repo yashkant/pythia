@@ -56,10 +56,12 @@ __C.data.image_feat_test = ["rcnn_10_100/vqa/test2015"]
 # training_parameters options:
 # --------------------------------------------------------------------------- #
 __C.training_parameters = AttrDict()
-__C.training_parameters.report_interval = 100
+__C.training_parameters.report_interval = 10
 __C.training_parameters.snapshot_interval = 1000
 __C.training_parameters.clip_norm_mode = 'all'
+__C.training_parameters.complement_clip_norm_mode = 'all'
 __C.training_parameters.max_grad_l2_norm = 0.25
+__C.training_parameters.complement_max_grad_l2_norm = 0.25
 __C.training_parameters.wu_factor = 0.2
 __C.training_parameters.wu_iters = 1000
 __C.training_parameters.max_iter = 12000
@@ -73,12 +75,23 @@ __C.training_parameters.lr_ratio = 0.1
 __C.loss = 'logitBCE'
 __C.use_complement_loss = False
 __C.complement_loss = 'complementEntropy'
+__C.hard_scores = False
+__C.weight_softmax = None  # Only for Combined Loss
+__C.weight_complement = None  # Only for Combined Loss
+__C.weight_complement_decay = False  # Only for Combined Loss
+__C.weight_complement_decay_factor = None  # Only for Combined Loss
+__C.weight_complement_decay_iters = None  # Only for Combined Loss
+
 
 # --------------------------------------------------------------------------- #
 # optimizer options:
 # --------------------------------------------------------------------------- #
 __C.optimizer = ModelParPair('Adamax')
 __C.complement_optimizer = ModelParPair('Adamax')
+# __C.SGD = False
+# __C.optimizer = ModelParPair('SGD')
+# __C.complement_optimizer = ModelParPair('SGD')
+
 
 # --------------------------------------------------------------------------- #
 # model options: Note default is our
