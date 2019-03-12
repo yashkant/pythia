@@ -96,45 +96,27 @@ def complement_entropy_loss(x, y):
     # Negated complement entropy (loss) for each label with zero target score
     # --------------------------------------------------------------------------
     y_is_0 = torch.eq(y, 0)
-    # print("y_is_0 shape: ", y_is_0.shape)
     x_remove_0 = x.clone().masked_fill_(y_is_0, 0)
-    # print("x_remove_0 shape: ", x_remove_0.shape)
     xr_sum = torch.sum(x_remove_0, dim=1, keepdim=True)
-    # print("xr_sum shape: ", xr_sum.shape)
     one_min_xr_sum = 1-xr_sum
-    # print("one_min_xr_sum shape: ", one_min_xr_sum.shape)
     one_min_xr_sum.masked_fill_(one_min_xr_sum <= 0, 1e-7)  # Numerical issues
-    # print("one_min_xr_sum shape: ", one_min_xr_sum.shape)
     px = x / one_min_xr_sum
-    # print("px shape: ", px.shape)
     log_px = torch.log(px + 1e-10)  # Numerical issues
-    # print("log_px shape: ", log_px.shape)
     new_x = px * log_px
-    # print("new_x shape: ", new_x.shape)
     loss = new_x * (y_is_0.float())  # Remove non-zero labels loss
-    # print("loss shape: ", loss.shape)
 
     # --------------------------------------------------------------------------
     # Normalize the loss to balance it with cross entropy loss
     # --------------------------------------------------------------------------
     num_labels = y.size()[1]
-    # print("num_labels shape: ", num_labels)
     zero_labels = torch.sum(y_is_0, dim=1, keepdim=True).float()
-    # print("zero_labels: ", zero_labels)
     non_zero_labels = num_labels - zero_labels
-    # print("non_zero_labels: ", non_zero_labels)
-    # print("labels sum: ", torch.sum(y, 1))
-    # zero_labels.masked_fill_(torch.eq(zero_labels, 0), 1e-7)  # num. issues
-    # print("zero_labels shape: ", zero_labels.shape)
-    # normalize = 1/1000000000000
-    normalize = 1 / num_labels
-    # print("normalize: ", normalize)
-    # zero_labels.masked_fill_(torch.eq(zero_labels, 0), 0)
-    # print("zero_labels shape: ", zero_labels.shape)
-    loss = loss * normalize
-    # print("loss shape: ", loss)
+    # normalize = non_zero_labels / zero_labels
+
+    if cfg.normalize_complement_loss:
+        normalize = 1 / num_labels
+        loss = loss * normalize
     loss_return = torch.sum(loss, dim=1, keepdim=True)
-    # print("loss_return shape:", loss_return.shape)
     return loss_return  # Sum the loss over the labels
 
 
@@ -280,6 +262,8 @@ class CombinedLoss(nn.Module):
         print("using complement weight iters: ", self.weight_complement_decay_iters)
 
     def forward(self, pred_score, target_score, iter=None):
+        loss2, loss3 = None, None
+
         tar_sum = torch.sum(target_score, dim=1, keepdim=True)
         tar_sum_is_0 = torch.eq(tar_sum, 0)
         tar_sum.masked_fill_(tar_sum_is_0, 1.0e-06)
@@ -302,6 +286,8 @@ class CombinedLoss(nn.Module):
             loss2 *= target_score.size(1)
             loss = self.weight_softmax * loss1 + loss2
 
+        # print("Loss before: ", loss)
+
         # ----------------------------------------------------------------------
         # Combine complement entropy loss pre-multiplied with a weight
         # ----------------------------------------------------------------------
@@ -310,5 +296,9 @@ class CombinedLoss(nn.Module):
             loss3 = complement_entropy_loss(res, tar)
             loss3 = torch.sum(loss3) / loss3.size(0)
             loss += self.weight_complement * loss3
+
+        if iter is not None and iter % cfg.training_parameters.report_interval == 0:
+            print("KL-Div Loss:", loss1.item(), "BCE Loss:", loss2.item(),
+                  "Comp Loss:", loss3.item(), "Total Loss:", loss.item())
 
         return loss

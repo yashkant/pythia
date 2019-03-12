@@ -81,6 +81,7 @@ __C.weight_complement = None  # Only for Combined Loss
 __C.weight_complement_decay = False  # Only for Combined Loss
 __C.weight_complement_decay_factor = None  # Only for Combined Loss
 __C.weight_complement_decay_iters = None  # Only for Combined Loss
+__C.normalize_complement_loss = True
 
 
 # --------------------------------------------------------------------------- #
