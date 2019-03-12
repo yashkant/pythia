@@ -76,6 +76,7 @@ __C.loss = 'logitBCE'
 __C.use_complement_loss = False
 __C.complement_loss = 'complementEntropy'
 __C.normalize_complement_loss = True
+__C.hard_scores = False
 
 # Use below only with 'combinedLoss'
 __C.weight_softmax = None

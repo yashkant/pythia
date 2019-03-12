@@ -111,6 +111,21 @@ def complement_entropy_loss(x, y):
     return loss_return  # Sum the loss over the labels
 
 
+def conv_soft_to_hard_onehot_scores(scores):
+    hard_scores = torch.zeros_like(scores)
+    scores_max, _ = torch.max(scores, dim=1, keepdim=True)
+    scores_max_exp = scores_max.expand_as(scores)
+    max_bool = torch.eq(scores, scores_max_exp)
+
+    for i, num_scores in enumerate(max_bool):
+        nonzero_inds = num_scores.nonzero().squeeze(-1)
+        rand_no = torch.LongTensor(1).random_(0, torch.sum(num_scores))
+        rand_ind = nonzero_inds[rand_no]
+        hard_scores[i][rand_ind] = 1
+
+    return hard_scores
+
+
 class weighted_softmax_loss(nn.Module):
     def __init__(self):
         super(weighted_softmax_loss, self).__init__()
@@ -120,6 +135,9 @@ class weighted_softmax_loss(nn.Module):
         tar_sum_is_0 = torch.eq(tar_sum, 0)
         tar_sum.masked_fill_(tar_sum_is_0, 1.0e-06)
         tar = target_score / tar_sum
+
+        if cfg.hard_scores:
+            tar = conv_soft_to_hard_onehot_scores(tar)
 
         res = F.log_softmax(pred_score, dim=1)
         loss = kl_div(res, tar)
@@ -165,6 +183,10 @@ class ComplementEntropyLoss(nn.Module):
         tar_sum_is_0 = torch.eq(tar_sum, 0)
         tar_sum.masked_fill_(tar_sum_is_0, 1.0e-06)
         tar = target_score / tar_sum
+
+        if cfg.hard_scores:
+            tar = conv_soft_to_hard_onehot_scores(tar)
+
         res = F.softmax(pred_score, dim=1)
         loss = complement_entropy_loss(res, tar)
         loss = torch.sum(loss) / loss.size(0)
@@ -181,6 +203,9 @@ class SoftmaxKlDivLoss(nn.Module):
         tar_sum.masked_fill_(tar_sum_is_0, 1.0e-06)
         tar = target_score / tar_sum
 
+        if cfg.hard_scores:
+            tar = conv_soft_to_hard_onehot_scores(tar)
+
         res = F.log_softmax(pred_score, dim=1)
         loss = kl_div(res, tar)
         loss = torch.sum(loss) / loss.size(0)
@@ -196,6 +221,9 @@ class wrong_loss(nn.Module):
         tar_sum_is_0 = torch.eq(tar_sum, 0)
         tar_sum.masked_fill_(tar_sum_is_0, 1.0e-06)
         tar = target_score / tar_sum
+
+        if cfg.hard_scores:
+            tar = conv_soft_to_hard_onehot_scores(tar)
 
         res = F.log_softmax(pred_score, dim=1)
         loss = F.kl_div(res, tar, reduction='mean')
@@ -227,6 +255,9 @@ class CombinedLoss(nn.Module):
         tar_sum_is_0 = torch.eq(tar_sum, 0)
         tar_sum.masked_fill_(tar_sum_is_0, 1.0e-06)
         tar = target_score / tar_sum
+
+        if cfg.hard_scores:
+            tar = conv_soft_to_hard_onehot_scores(tar)
 
         # ----------------------------------------------------------------------
         # Adds weight decay to complement loss
@@ -260,5 +291,12 @@ class CombinedLoss(nn.Module):
             loss3 = complement_entropy_loss(res, tar)
             loss3 = torch.sum(loss3) / loss3.size(0)
             loss += self.weight_complement * loss3
+
+        if iter is not None and\
+                iter % cfg.training_parameters.report_interval == 0:
+            print("KL-Div Loss:", loss1.item(),
+                  "BCE Loss:", loss2.item() if loss2 is not None else "None",
+                  "Comp Loss:", loss3.item() if loss3 is not None else "None",
+                  "Total Loss:", loss.item())
 
         return loss
