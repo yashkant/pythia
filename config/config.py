@@ -90,7 +90,9 @@ __C.weight_complement_decay_iters = 1500
 # optimizer options:
 # --------------------------------------------------------------------------- #
 __C.optimizer = ModelParPair('Adamax')
+# __C.optimizer = ModelParPair('SGD')
 __C.complement_optimizer = ModelParPair('Adamax')
+# __C.complement_optimizer = ModelParPair('SGD')
 
 # --------------------------------------------------------------------------- #
 # model options: Note default is our
