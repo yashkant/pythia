@@ -17,7 +17,7 @@ from global_variables.global_variables import use_cuda
 from config.config import cfg
 from tools.timer import Timer
 from torch import autograd
-
+from tools.visualize_gradients import plot_grad_flow
 
 def masked_unk_softmax(x, dim, mask_idx):
     x1 = F.softmax(x, dim=dim)
@@ -223,6 +223,9 @@ def one_stage_train(model,
             optimizer_list[0].zero_grad()
             add_graph = False
 
+            show_grads = cfg.show_gradients and ((i_iter + 1)
+                                                 % cfg.show_grads_interval == 0)
+
             scores, total_loss, n_sample = compute_a_batch(batch,
                                                            model,
                                                            eval_mode=False,
@@ -231,6 +234,10 @@ def one_stage_train(model,
                                                            add_graph=add_graph,
                                                            log_dir=log_dir)
             total_loss.backward()
+
+            if show_grads:
+                plot_grad_flow(model.named_parameters(), "Primary Gradients")
+
             clip_gradients(model, i_iter, writer, 'primary')
             optimizer_list[0].step()
             losses.append(total_loss)
@@ -254,6 +261,11 @@ def one_stage_train(model,
                                                       log_dir=log_dir,
                                                       iter=i_iter)
                     comp_loss.backward()
+
+                if show_grads:
+                    plot_grad_flow(model.named_parameters(),
+                                   "Secondary Gradients")
+
                 clip_gradients(model, i_iter, writer, 'complement')
                 optimizer_list[1].step()
                 losses.append(comp_loss)

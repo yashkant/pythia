@@ -77,6 +77,8 @@ __C.use_complement_loss = False
 __C.complement_loss = 'complementEntropy'
 __C.normalize_complement_loss = True
 __C.hard_scores = False
+__C.show_gradients = False
+__C.show_grads_interval = 10
 
 # Use below only with 'combinedLoss'
 __C.weight_softmax = None
