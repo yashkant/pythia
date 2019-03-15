@@ -9,3 +9,7 @@ orig_data/*
 results/*
 boards/*
 .DS_Store
+verify_cot/COT/code/data
+verify_cot/COT/code/results
+verify_cot/COT/code/checkpoint
+
