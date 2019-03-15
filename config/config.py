@@ -82,8 +82,8 @@ __C.hard_scores = False
 __C.weight_softmax = None
 __C.weight_complement = None
 __C.weight_complement_decay = False
-__C.weight_complement_decay_factor = None
-__C.weight_complement_decay_iters = None
+__C.weight_complement_decay_factor = 0.5
+__C.weight_complement_decay_iters = 1500
 
 
 # --------------------------------------------------------------------------- #
