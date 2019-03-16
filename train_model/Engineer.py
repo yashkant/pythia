@@ -232,7 +232,8 @@ def one_stage_train(model,
                                                            loss_criterions=
                                                            loss_criterions[0],
                                                            add_graph=add_graph,
-                                                           log_dir=log_dir)
+                                                           log_dir=log_dir,
+                                                           iter=i_iter)
             total_loss.backward()
 
             if show_grads:

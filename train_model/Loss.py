@@ -251,6 +251,7 @@ class CombinedLoss(nn.Module):
             self.weight_complement_decay_iters = cfg.weight_complement_decay_iters
 
     def forward(self, pred_score, target_score, iter=None):
+        loss_bce, loss_comp, loss_softmax, loss = None, None, None, None
         tar_sum = torch.sum(target_score, dim=1, keepdim=True)
         tar_sum_is_0 = torch.eq(tar_sum, 0)
         tar_sum.masked_fill_(tar_sum_is_0, 1.0e-06)
@@ -296,9 +297,9 @@ class CombinedLoss(nn.Module):
 
         if iter is not None and\
                 iter % cfg.training_parameters.report_interval == 0:
-            print("KL-Div Loss:", loss1.item(),
-                  "BCE Loss:", loss2.item() if loss2 is not None else "None",
-                  "Comp Loss:", loss3.item() if loss3 is not None else "None",
+            print("KL-Div Loss:", loss_softmax.item(),
+                  "BCE Loss:", loss_bce.item() if loss_bce is not None else "None",
+                  "Comp Loss:", loss_comp.item() if loss_comp is not None else "None",
                   "Total Loss:", loss.item())
 
         return loss
