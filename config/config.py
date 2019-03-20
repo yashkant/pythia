@@ -77,10 +77,26 @@ __C.use_complement_loss = False
 __C.complement_loss = 'complementEntropy'
 __C.normalize_complement_loss = True
 __C.hard_scores = False
-__C.show_gradients = False
-__C.show_grads_interval = 10
 
-# Use below only with 'combinedLoss'
+# ------------------------------------------------------------------------------#
+# show_gradients = True to see the gradient flow plotted across the model
+# show_grads_interval sets the interval with which gradients are shown
+# ------------------------------------------------------------------------------#
+__C.show_gradients = False
+__C.show_grads_interval = 100
+
+# -----------------------------------------------------------------------------#
+# Use below configurations only with __C.loss = 'combinedLoss'
+#
+# weight_softmax (Float) : Combines 'softmaxKL' and 'logitBCE' losses
+# Set weight_softmax to None for using only 'softmaxKL' loss
+# Set weight_softmax to 0.0 for using only 'logitBCE' loss
+#
+# weight_complement (Float): Combines 'complementEntropy' with remaining loss
+# weight_complement_decay (Bool): Set to True to decay the weight_complement
+# weight_complement_decay_factor (Float): Decay factor that is multiplied
+# weight_complement_decay_iters (Integer): Iterations after which to apply decay
+# -----------------------------------------------------------------------------#
 __C.weight_softmax = None
 __C.weight_complement = None
 __C.weight_complement_decay = False

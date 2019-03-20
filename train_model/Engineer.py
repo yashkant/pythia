@@ -38,7 +38,10 @@ def compute_score_with_logits(logits, labels):
 
 
 def clip_gradients(model, i_iter, writer, grads_label):
-
+    """
+    grads_label: Label used to distinguish between complement and primary
+    gradients
+    """
     if grads_label == 'primary':
         max_grad_l2_norm = cfg.training_parameters.max_grad_l2_norm
         clip_norm_mode = cfg.training_parameters.clip_norm_mode
@@ -336,6 +339,7 @@ def compute_a_batch(batch, my_model, eval_mode, loss_criterions=None,
     Parameters
     ----------
     loss_criterions: Could be either a list or single loss (nn.Module) object.
+    iter: Current iteration, used for complement weight decay. (Optional)
     """
     obs_res = batch['ans_scores']
     obs_res = Variable(obs_res.type(torch.FloatTensor))

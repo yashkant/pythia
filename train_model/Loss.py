@@ -235,20 +235,10 @@ class CombinedLoss(nn.Module):
     def __init__(self):
         super(CombinedLoss, self).__init__()
 
-        self.weight_softmax = None
-        self.weight_complement = None
-        self.weight_complement_decay_factor = None
-        self.weight_complement_decay_iters = None
-
-        if cfg.weight_softmax is not None:
-            self.weight_softmax = cfg.weight_softmax
-
-        if cfg.weight_complement is not None:
-            self.weight_complement = cfg.weight_complement
-
-        if cfg.weight_complement_decay:
-            self.weight_complement_decay_factor = cfg.weight_complement_decay_factor
-            self.weight_complement_decay_iters = cfg.weight_complement_decay_iters
+        self.weight_softmax = cfg.weight_softmax
+        self.weight_complement = cfg.weight_complement
+        self.weight_complement_decay_factor = cfg.weight_complement_decay_factor
+        self.weight_complement_decay_iters = cfg.weight_complement_decay_iters
 
     def forward(self, pred_score, target_score, iter=None):
         loss_bce, loss_comp, loss_softmax, loss = None, None, None, None
@@ -275,7 +265,7 @@ class CombinedLoss(nn.Module):
         loss = loss_softmax
 
         # ----------------------------------------------------------------------
-        # Balances 'softmaxKL' vs 'logitBCE' losses
+        # Combines 'softmaxKL' and 'logitBCE' losses
         # Set weight_softmax to None for using only 'softmaxKL' loss
         # Set weight_softmax to 0.0 for using only 'logitBCE' loss
         # ----------------------------------------------------------------------
@@ -297,7 +287,7 @@ class CombinedLoss(nn.Module):
 
         if iter is not None and\
                 iter % cfg.training_parameters.report_interval == 0:
-            print("KL-Div Loss:", loss_softmax.item(),
+            print("Mixed Loss Constituents==> ", "KL-Div Loss:", loss_softmax.item(),
                   "BCE Loss:", loss_bce.item() if loss_bce is not None else "None",
                   "Comp Loss:", loss_comp.item() if loss_comp is not None else "None",
                   "Total Loss:", loss.item())

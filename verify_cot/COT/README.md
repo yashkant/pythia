@@ -5,14 +5,16 @@ This code exists to verify the implementation of COT used in Pythia for multi-la
 Please see the original repository at: https://github.com/henry8527/COT
 
 ## Usage
-For getting baseline results
+For getting baseline results (without COT)
 	
 	python main.py --sess Baseline_session
 	
-For training via Complement objective  (Author's Implementation)
+For training with Author's Implementation of COT
 
 	python main.py --COT --sess COT_session
 
-For training via Complement objective using Custom Implementation (Pythia's Implementation)
+For training with Custom (Pythia's) Implementation of COT
 
 	python main.py --COT --sess COT_session --use_custom
+	
+	

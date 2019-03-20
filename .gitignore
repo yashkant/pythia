@@ -12,4 +12,4 @@ boards/*
 verify_cot/COT/code/data
 verify_cot/COT/code/results
 verify_cot/COT/code/checkpoint
-gpu*.sh
+
