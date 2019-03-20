@@ -38,7 +38,6 @@ parser.add_argument('--epochs', default=200, type=int,
 parser.add_argument('--use_custom', '-uc', action='store_true',
                     help='Use custom loss')
 
-
 args = parser.parse_args()
 
 torch.manual_seed(args.seed)
@@ -156,10 +155,11 @@ def train(epoch):
         correct += predicted.eq(targets.data).cpu().sum()
         correct = correct.item()
 
-        # progress_bar(batch_idx, len(trainloader),
-        #              'Loss: %.3f | Acc: %.3f%% (%d/%d)'
-        #              % (train_loss / (batch_idx + 1), 100. * correct / total,
-        #                 correct, total))
+        if args.COT is False:
+            progress_bar(batch_idx, len(trainloader),
+                         'Loss: %.3f | Acc: %.3f%% (%d/%d)' %
+                         (train_loss / (batch_idx + 1), 100. * correct / total,
+                          correct, total))
 
         # COT Implementation
         if args.COT:
@@ -190,8 +190,9 @@ def train(epoch):
 
             progress_bar(batch_idx, len(trainloader),
                          'Authors comp Loss: %.6f| Custom comp Loss: %.6f| Loss diff: %.10f | Acc: %.3f%% (%d/%d)'
-                         % (loss, custom_loss, loss-custom_loss, 100. * correct / total,
-                        correct, total))
+                         % (loss, custom_loss, loss - custom_loss,
+                            100. * correct / total,
+                            correct, total))
 
     return (train_loss / batch_idx, 100. * correct / total)
 
