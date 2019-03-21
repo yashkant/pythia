@@ -21,6 +21,7 @@ For training with Custom (Pythia's) Implementation of COT
 
 The following table shows the best test errors in a 200-epoch training session using different implementations of COT against the baseline. 
 
-| Model              | Baseline  | Author's COT | Pythia's COT
+| Model              | Baseline [[log file](https://github.com/yashkant/pythia/blob/add-cot-test/verify_cot/COT/code/log-baseline-run.txt)]  | Author's COT [[log file](https://github.com/yashkant/pythia/blob/add-cot-test/verify_cot/COT/code/log-author-run.txt)] | Pythia's COT [[log file](https://github.com/yashkant/pythia/blob/add-cot-test/verify_cot/COT/code/log-custom-run.txt)]
 |:-------------------|:---------------------|:---------------------|:---------------------|
 | PreAct ResNet-18                |               5.53%  |              4.92%  |        4.85%
+
