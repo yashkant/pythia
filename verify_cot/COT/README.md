@@ -7,15 +7,15 @@ Please see the original repository at: https://github.com/henry8527/COT
 ## Usage
 For getting baseline results (without COT)
 	
-	CUDA_VISIBLE_DEVICES=0 python main.py --sess Baseline_session
+	python main.py --sess Baseline_session
 	
 For training with Author's Implementation of COT
 
-	CUDA_VISIBLE_DEVICES=1 python main.py --COT --sess COT_session
+	python main.py --COT --sess COT_session
 
 For training with Custom (Pythia's) Implementation of COT
 
-	CUDA_VISIBLE_DEVICES=2 python main.py --COT --sess COT_custom_session --use_custom
+	python main.py --COT --sess COT_custom_session --use_custom
 
 ## Results
 
