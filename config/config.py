@@ -73,14 +73,23 @@ __C.training_parameters.lr_ratio = 0.1
 # loss options:
 # --------------------------------------------------------------------------- #
 __C.loss = 'logitBCE'
+
+# --------------------------------------------------------------------------- #
+# use_complement_loss (Bool): Switch to control Complement Training (alternate)
+# complement_loss (String): Loss to use for COT, default: "complementEntropy"
+# hard_scores (Bool): Take argmax over the soft-scores and set the other labels
+# to 0.
+# normalize_complement_loss (Bool): Switch to control the normalization of
+# complement loss across label categories.
+# --------------------------------------------------------------------------- #
 __C.use_complement_loss = False
 __C.complement_loss = 'complementEntropy'
 __C.normalize_complement_loss = True
 __C.hard_scores = False
 
 # ------------------------------------------------------------------------------#
-# show_gradients = True to see the gradient flow plotted across the model
-# show_grads_interval sets the interval with which gradients are shown
+# show_gradients (Bool): See the gradient flow plotted across the model
+# show_grads_interval(Integer): Set the interval after which gradients are shown
 # ------------------------------------------------------------------------------#
 __C.show_gradients = False
 __C.show_grads_interval = 100
