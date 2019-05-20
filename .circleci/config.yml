@@ -1,0 +1,28 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/python:3.7
+    working_directory: ~/pythia
+    steps:
+      - checkout
+      - run:
+          name: Install Dependencies
+          command: |
+            python3 -m venv venv
+            . venv/bin/activate
+            python setup.py develop
+      - run:
+          name: Download required data
+          command: |
+            mkdir data
+            cd data
+            wget http://dl.fbaipublicfiles.com/pythia/data/vocab.tar.gz
+            tar xf vocab.tar.gz
+            cd ..
+      - run:
+          name: Run Tests
+          command: |
+            . venv/bin/activate
+            cd tests
+            pytest -v .

@@ -1,285 +1,189 @@
 # Pythia
 
-Pythia is a modular framework for Visual
-Question Answering research, which formed the basis for
-the winning entry to the VQA Challenge 2018 from Facebook AI Research (FAIR)’s A-STAR team. Please check our [paper](https://arxiv.org/abs/1807.09956) for more details.
-
-(A-STAR: Agents that See, Talk, Act, and Reason.)
-
-![Alt text](info/vqa_example.png?raw=true "vqa examples")
+[![Documentation Status](https://readthedocs.org/projects/learnpythia/badge/?version=latest)](https://learnpythia.readthedocs.io/en/latest/?badge=latest) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1Z9fsh10rFtgWe4uy8nvU4mQmqdokdIRR)[![CircleCI](https://circleci.com/gh/facebookresearch/pythia.svg?style=svg)](https://circleci.com/gh/facebookresearch/pythia)
 
 
-### Table of Contents
-0. [Motivation](#motivation)
-0. [Citing pythia](#citing-pythia)
-0. [Installing pythia environment](#installing-pythia-environment)
-0. [Quick start](#quick-start)
-0. [Preprocess dataset](#preprocess-dataset)
-0. [Test with pretrained models](#test-with-pretrained-models)
-0. [Ensemble models](#ensemble-models)
-0. [Customize config](#customize-config)
-0. [Docker demo](#docker-demo)
-0. [AWS s3 dataset summary](#aws-s3-dataset-summary)
-0. [Acknowledgements](#acknowledgements)
-0. [References](#references)
+Pythia is a modular framework for vision and language multimodal research. Built on top
+of PyTorch, it features:
 
+- **Model Zoo**: Reference implementations for state-of-the-art vision and language model including
+[LoRRA](https://arxiv.org/abs/1904.08920) (SoTA on VQA and TextVQA),
+[Pythia](https://arxiv.org/abs/1807.09956) model (VQA 2018 challenge winner) and [BAN]().
+- **Multi-Tasking**: Support for multi-tasking which allows training on multiple dataset together.
+- **Datasets**: Includes support for various datasets built-in including VQA, VizWiz, TextVQA and VisualDialog.
+- **Modules**: Provides implementations for many commonly used layers in vision and language domain
+- **Distributed**: Support for distributed training based on DataParallel as well as DistributedDataParallel.
+- **Unopinionated**: Unopinionated about the dataset and model implementations built on top of it.
+- **Customization**: Custom losses, metrics, scheduling, optimizers, tensorboard; suits all your custom needs.
 
-### Motivation
-The motivation for Pythia comes from the following observation – a majority of today’s Visual Question Answering (VQA) models fit a particular design paradigm, with modules for question encoding, image feature extraction,
-fusion of the two (typically with attention), and classification over the space of answers. The long-term goal of Pythia is to serve as a platform for easy and modular research & development in VQA and related directions like visual dialog.
+You can use Pythia to **_bootstrap_** for your next vision and language multimodal research project.
 
-#### Why the name _Pythia_?
-The name Pythia is an homage to the Oracle
-of Apollo at Delphi, who answered questions in Ancient
-Greece. See [here](https://en.wikipedia.org/wiki/Pythia) for more details.
+Pythia can also act as **starter codebase** for challenges around vision and
+language datasets (TextVQA challenge, VQA challenge)
 
-### Citing pythia
-If you use Pythia in your research, please use the following BibTeX entries for reference:
+## Documentation
 
-The software:
+Learn more about Pythia [here](https://learnpythia.readthedocs.io/en/latest/).
+
+## Demo
+
+Try the demo for Pythia model on [Colab](https://colab.research.google.com/drive/1Z9fsh10rFtgWe4uy8nvU4mQmqdokdIRR).
+
+## Getting Started
+
+First install the repo using
 
 ```
-@misc{pythia18software,
-  title =        {Pythia},
-  author =       {Yu Jiang and Vivek Natarajan and Xinlei Chen and Marcus Rohrbach and Dhruv Batra and Devi Parikh},
-  howpublished = {\url{https://github.com/facebookresearch/pythia}},
-  year =         {2018}
+git clone https://github.com/facebookresearch/pythia ~/pythia
+
+# You can also create your own conda environment and then enter this step
+cd ~/pythia
+python setup.py develop
+```
+
+Now, Pythia should be ready to use. Follow steps in specific sections to start training
+your own models using Pythia.
+
+
+## Data
+
+Default configuration assume that all of the data is present in the `data` folder inside `pythia` folder.
+
+Depending on which dataset you are planning to use download the feature and imdb (image database) data for that particular dataset using
+the links in the table (_right click -> copy link address_). Feature data has been extracted out from Detectron and are used in the
+reference models. Example below shows the sample commands to be run, once you have
+the feature (feature_link) and imdb (imdb_link) data links.
+
+```
+cd ~/pythia
+mkdir -p data && cd data
+wget http://dl.fbaipublicfiles.com/pythia/data/vocab.tar.gz
+
+# The following command should result in a 'vocabs' folder in your data dir
+tar xf vocab.tar.gz
+
+# Download detectron weights
+wget http://dl.fbaipublicfiles.com/pythia/data/detectron_weights.tar.gz
+tar xf detectron_weights.tar.gz
+
+# Now download the features required, feature link is taken from the table below
+# These two commands below can take time
+wget feature_link
+
+# [features].tar.gz is the file you just downloaded, replace that with your file's name
+tar xf [features].tar.gz
+
+# Make imdb folder and download required imdb
+mkdir -p imdb && cd imdb
+wget imdb_link
+
+# [imdb].tar.gz is the file you just downloaded, replace that with your file's name
+tar xf [imdb].tar.gz
+```
+
+| Dataset      | Key | Task | ImDB Link                                                                         | Features Link  | Features checksum                                                                 |
+|--------------|-----|-----|-----------------------------------------------------------------------------------|---------------------------------------------------------------------------------|---------|
+| TextVQA      | textvqa | vqa | [TextVQA 0.5 ImDB](https://dl.fbaipublicfiles.com/pythia/data/imdb/textvqa_0.5.tar.gz) | [OpenImages](https://dl.fbaipublicfiles.com/pythia/features/open_images.tar.gz) | `ab7947b04f3063c774b87dfbf4d0e981` | 
+| VQA 2.0      | vqa2 | vqa | [VQA 2.0 ImDB](https://dl.fbaipublicfiles.com/pythia/data/imdb/vqa.tar.gz)                 | [COCO](https://dl.fbaipublicfiles.com/pythia/features/coco.tar.gz)              | `b22e80997b2580edaf08d7e3a896e324` |
+| VizWiz       | vizwiz | vqa | [VizWiz ImDB](https://dl.fbaipublicfiles.com/pythia/data/imdb/vizwiz.tar.gz)           | [VizWiz](https://dl.fbaipublicfiles.com/pythia/features/vizwiz.tar.gz)          | `9a28d6a9892dda8519d03fba52fb899f` |
+| VisualDialog | visdial | dialog | Coming soon!                                                                      | Coming soon!                                                                    | Coming soon! | 
+
+After downloading the features, verify the download by checking the md5sum using 
+
+```bash
+echo "<checksum>  <dataset_name>.tar.gz" | md5sum -c -
+```
+
+
+## Training
+
+Once we have the data downloaded and in place, we just need to select a model, an appropriate task and dataset as well related config file. Default configurations can be found  inside `configs` folder in repository's root folder. Configs are divided for models in format of `[task]/[dataset_key]/[model_key].yml` where `dataset_key` can be retrieved from the table above. For example, for `pythia` model, configuration for VQA 2.0 dataset can be found at `configs/vqa/vqa2/pythia.yml`. Following table shows the keys and the datasets
+supported by the models in Pythia's model zoo.
+
+| Model  | Key | Supported Datasets    | Pretrained Models | Notes                                                     |
+|--------|-----------|-----------------------|-------------------|-----------------------------------------------------------|
+| Pythia | pythia    | vqa2, vizwiz, textvqa | [vqa2 train+val](https://dl.fbaipublicfiles.com/pythia/pretrained_models/vqa2/pythia_train_val.pth), [vqa2 train only](https://dl.fbaipublicfiles.com/pythia/pretrained_models/vqa2/pythia.pth)      |                                                            |
+| LoRRA  | lorra     | vqa2, vizwiz, textvqa       | [textvqa](https://dl.fbaipublicfiles.com/pythia/pretrained_models/textvqa/lorra_best.pth)      |                               |
+| BAN    | ban       | vqa2, vizwiz, textvqa | Coming soon!      | Support is preliminary and haven't been tested thoroughly. |
+
+
+For running `LoRRA` on `TextVQA`, run the following command from root directory of your pythia clone:
+
+```
+cd ~/pythia
+python tools/run.py --tasks vqa --datasets textvqa --model lorra --config configs/vqa/textvqa/lorra.yml
+```
+
+## Pretrained Models
+
+We are including some of the pretrained models as described in the table above.
+For e.g. to run the inference using LoRRA for TextVQA for EvalAI use following commands:
+
+```
+# Download the model first
+cd ~/pythia/data
+mkdir -p models && cd models;
+# Get link from the table above and extract if needed
+wget https://dl.fbaipublicfiles.com/pythia/pretrained_models/textvqa/lorra_best.pth
+
+cd ../..
+# Replace tasks, datasets and model with corresponding key for other pretrained models
+python tools/run.py --tasks vqa --datasets textvqa --model lorra --config configs/vqa/textvqa/lorra.yml \
+--run_type inference --evalai_inference 1 --resume_file data/models/lorra_best.pth
+```
+
+The table below shows inference metrics for various pretrained models:
+
+| Model  | Dataset          | Metric                     | Notes                         |
+|--------|------------------|----------------------------|-------------------------------|
+| Pythia | vqa2 (train+val) | test-dev accuracy - 68.31% | Can be easily pushed to 69.2% |
+| Pythia | vqa2 (train)     | test-dev accuracy - 66.7%  |                               |
+| LoRRA  | textvqa (train)  | val accuracy - 27.4%       |                               |
+
+## Documentation
+
+Documentation specific on how to navigate around Pythia and making changes will be available soon.
+
+## Citation
+
+If you use Pythia in your work, please cite:
+
+```
+@inproceedings{singh2019TowardsVM,
+  title={Towards VQA Models That Can Read},
+  author={Singh, Amanpreet and Natarajan, Vivek and Shah, Meet and Jiang, Yu and Chen, Xinlei and Batra, Dhruv and Parikh, Devi and Rohrbach, Marcus},
+  booktitle={Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition},
+  year={2019}
 }
 ```
 
-The technical report detailing the description and analysis for our winning entry to the VQA 2018 challenge:
+and
 
 ```
-@article{pythia18arxiv,
-  title =        {Pythia v0.1: the Winning Entry to the VQA Challenge 2018},
-  author =       {{Yu Jiang*} and {Vivek Natarajan*} and {Xinlei Chen*} and Marcus Rohrbach and Dhruv Batra and Devi Parikh},
-  journal =      {arXiv preprint arXiv:1807.09956},
-  year =         {2018}
+@inproceedings{singh2018pythia,
+  title={Pythia-a platform for vision \& language research},
+  author={Singh, Amanpreet and Natarajan, Vivek and Jiang, Yu and Chen, Xinlei and Shah, Meet and Rohrbach, Marcus and Batra, Dhruv and Parikh, Devi},
+  booktitle={SysML Workshop, NeurIPS},
+  volume={2018},
+  year={2018}
 }
 ```
 
-\* Yu Jiang, Vivek Natarajan and Xinlei Chen contributed equally to the winning entry to the VQA 2018 challenge.
+## Miscellaneous
+If you are looking for v0.1, the VQA 2018 challenge winner entry, checkout the tag
+for [v0.1](https://github.com/facebookresearch/pythia/releases/tag/v0.1).
 
-### Installing pythia environment
+## Troubleshooting/FAQs
 
-1. Install Anaconda (Anaconda recommended: https://www.continuum.io/downloads).
-2. Install cudnn v7.0 and cuda.9.0
-3. Create environment for pythia
-```bash
-conda create --name vqa python=3.6
-
-source activate vqa
-pip install demjson pyyaml
-
-pip install http://download.pytorch.org/whl/cu90/torch-0.3.1-cp36-cp36m-linux_x86_64.whl
-
-pip install torchvision
-pip install tensorboardX
+1. If `setup.py` causes any issues, please install fastText first directly from the source and
+then run `python setup.py develop`. To install fastText run following commands:
 
 ```
-
-
-### Quick start
-We provide preprocessed data files to directly start training and evaluating. Instead of using the original `train2014` and `val2014` splits, we split `val2014` into `val2train2014` and `minival2014`, and use `train2014` + `val2train2014` for training and `minival2014` for validation.
-
-Download data. This step may take some time. Check the sizes of files at the end of readme.
-```bash
-
-git clone git@github.com:facebookresearch/pythia.git
-cd Pythia
-
-mkdir data
-cd data
-wget https://s3-us-west-1.amazonaws.com/pythia-vqa/data/vqa2.0_glove.6B.300d.txt.npy
-wget https://s3-us-west-1.amazonaws.com/pythia-vqa/data/vocabulary_vqa.txt
-wget https://s3-us-west-1.amazonaws.com/pythia-vqa/data/answers_vqa.txt
-wget https://s3-us-west-1.amazonaws.com/pythia-vqa/data/imdb.tar.gz
-wget https://s3-us-west-1.amazonaws.com/pythia-vqa/data/rcnn_10_100.tar.gz
-wget https://s3-us-west-1.amazonaws.com/pythia-vqa/data/detectron.tar.gz
-wget https://s3-us-west-1.amazonaws.com/pythia-vqa/data/large_vocabulary_vqa.txt
-wget https://s3-us-west-1.amazonaws.com/pythia-vqa/data/large_vqa2.0_glove.6B.300d.txt.npy
-gunzip imdb.tar.gz 
-tar -xf imdb.tar
-
-gunzip rcnn_10_100.tar.gz 
-tar -xf rcnn_10_100.tar
-rm -f rcnn_10_100.tar
-
-gunzip detectron.tar.gz
-tar -xf detectron.tar
-rm -f detectron.tar
+git clone https://github.com/facebookresearch/fastText.git
+cd fastText
+pip install -e .
 ```
 
-Optional command-line arguments for `train.py`
-```bash
-python train.py -h
+## License
 
-usage: train.py [-h] [--config CONFIG] [--out_dir OUT_DIR] [--seed SEED]
-                [--config_overwrite CONFIG_OVERWRITE] [--force_restart]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --config CONFIG       config yaml file
-  --out_dir OUT_DIR     output directory, default is current directory
-  --seed SEED           random seed, default 1234, set seed to -1 if need a
-                        random seed between 1 and 100000
-  --config_overwrite CONFIG_OVERWRITE
-                        a json string to update yaml config file
-  --force_restart       flag to force clean previous result and restart
-                        training
-```
-
-Run model without finetuning
-```bash
-cd ../
-python train.py
-```
-If there is a out of memory error, try:
-```bash
-python train.py --config_overwrite '{data:{image_fast_reader:false}}'
-```
-
-Run model with features from detectron with finetuning
-```bash
-python train.py --config config/keep/detectron.yaml
-
-```
-Check result for the default run
-```bash
-cd results/default/1234
-
-```
-The results folder contains the following info
-```angular2html
-results
-|_ default
-|  |_ 1234 (default seed)
-|  |  |_config.yaml
-|  |  |_best_model.pth
-|  |  |_best_model_predict_test.pkl 
-|  |  |_best_model_predict_test.json (json file for predicted results on test dataset)
-|  |  |_model_00001000.pth (mpdel snapshot at iter 1000)
-|  |  |_result_on_val.txt
-|  |  |_ ...
-|  |_(other_cofig_setting)
-|  |  |_...
-|_ (other_config_file)
-|
-
-```
-The log files for tensorbord are stored under `boards/`
-
-
-### Preprocess dataset
-If you want to start from the original VQA dataset and preprocess data by yourself, use the following instructions in [data_preprocess.md](data_prep/data_preprocess.md). 
-***This part is not necessary if you download all data from quick start.***
-
-
-### Test with pretrained models
-Note: all of these models below are trained with validation set included
-
-| Description | performance (test-dev) | Link |
-| --- | --- | --- |
-|detectron_100_resnet_most_data | 70.01 |https://s3-us-west-1.amazonaws.com/pythia-vqa/pretrained_models/detectron_100_resnet_most_data.tar.gz
-| baseline | 68.05 | https://s3-us-west-1.amazonaws.com/pythia-vqa/pretrained_models/baseline.tar.gz |
-| baseline +VG +VisDal +mirror | 68.98 |https://s3-us-west-1.amazonaws.com/pythia-vqa/pretrained_models/most_data.tar.gz |
-| detectron_finetune | 68.49 | https://s3-us-west-1.amazonaws.com/pythia-vqa/pretrained_models/detectron.tar.gz|
-| detectron_finetune+VG +VisDal +mirror |69.24 | https://s3-us-west-1.amazonaws.com/pythia-vqa/pretrained_models/detectron_most_data.tar.gz |
-
-
-#### Best Pretrained Model
-The best pretrained model can be downloaded as follows:
-
-```bash
-mkdir pretrained_models/
-cd pretrained_models
-wget https://s3-us-west-1.amazonaws.com/pythia-vqa/pretrained_models/detectron_100_resnet_most_data.tar.gz
-gunzip detectron_100_resnet_most_data.tar.gz 
-tar -xf detectron_100_resnet_most_data.tar
-rm -f detectron_100_resnet_most_data.tar
-```
-
-
-Get ResNet152 features and Detectron features with fixed 100 bounding boxes
-```bash
-cd data
-wget https://s3-us-west-1.amazonaws.com/pythia-vqa/data/detectron_fix_100.tar.gz
-gunzip detectron_fix_100.tar.gz
-tar -xf detectron_fix_100.tar
-rm -f detectron_fix_100.tar
-
-wget https://s3-us-west-1.amazonaws.com/pythia-vqa/data/resnet152.tar.gz
-gunzip resnet152.tar.gz
-tar -xf resnet152.tar
-rm -f resnet152.tar
-```
-
-
-Test the best model on the VQA test2015 dataset
-```bash
-
-python run_test.py --config pretrained_models/detectron_100_resnet_most_data/1234/config.yaml \
---model_path pretrained_models/detectron_100_resnet_most_data/1234/best_model.pth \
---out_prefix test_best_model
-```
-
-The results will be saved as a json file `test_best_model.json`, and this file can be uploaded to the evaluation server on EvalAI (https://evalai.cloudcv.org/web/challenges/challenge-page/80/submission).
-
-### Ensemble models
-Download all the models above
-```bash
-python ensemble.py --res_dirs pretrained_models/ --out ensemble_5.json
-```
-Results will be saved in `ensemble_5.json`. This ensemble can get accuracy 71.65 on test-dev.
-
-#### Ensemble 30 models
-To run an ensemble of 30 pretrained models, download the models and image features as follows. This gets an accuracy of 72.18 on test-dev.
-
-```bash
-wget https://s3-us-west-1.amazonaws.com/pythia-vqa/ensembled.tar.gz
-```
-### Customize config
-To change models or adjust hyper-parameters, see [config_help.md](config_help.md)
-
-### Docker demo
-To quickly tryout a model interactively with [nvidia-docker](https://github.com/NVIDIA/nvidia-docker)
-
-```bash
-git clone https://github.com/facebookresearch/pythia.git
-nvidia-docker build pythia -t pythia:latest
-nvidia-docker run -ti --net=host pythia:latest
-```
-
-This will open a jupyter notebook with a demo model to which you can ask questions interactively.
-
-### AWS s3 dataset summary
-Here, we listed the size of some large files in our AWS S3 bucket.
-
-| Description | size  |
-| --- | --- | 
-|data/rcnn_10_100.tar.gz | 71.0GB |
-|data/detectron.tar.gz | 106.2 GB|
-|data/detectron_fix_100.tar.gz|162.6GB|
-|data/resnet152.tar.gz | 399.6GB|
-|ensembled.tar.gz| 462.1GB|
-
-### Acknowledgements
-We would like to thank Peter Anderson, Abhishek Das, Stefan Lee, Jiasen Lu, Jianwei Yang, Licheng Yu, 
-Luowei Zhou for helpful discussions, Peter Anderson for providing
-training data for the Visual Genome detector, Deshraj Yadav
-for responses on EvalAI related questions, Stefan Lee
-for suggesting the name *Pythia*, Meet Shah for building the docker demo for Pythia and 
-Abhishek Das, Abhishek Kadian for feedback on our codebase.
-
-
-### References
-- Y. Jiang, and V. Natarajan and X. Chen and M. Rohrbach and D. Batra and D. Parikh. Pythia v0.1: The Winning Entry to the VQA Challenge 2018. CoRR, abs/1807.09956, 2018.
-- P. Anderson, X. He, C. Buehler, D. Teney, M. Johnson, S. Gould, and L. Zhang. Bottom-up and top-down attenttion for image captioning and visual question answering. In _CVPR_, 2018.
-- S. Antol,   A. Agrawal,   J. Lu,   M. Mitchell,   D. Batra,C. Lawrence Zitnick, and D. Parikh.  VQA:  Visual question answering. In _ICCV_, 2015
-- A. Das,  S. Kottur,  K. Gupta,  A. Singh,  D. Yadav,  J. M. Moura, D. Parikh, and D. Batra.  Visual Dialog.  In _CVPR_, 2017
-- Y. Goyal, T. Khot, D. Summers-Stay, D. Batra, and D. Parikh. Making the V in VQA matter: Elevating the role of image understanding in Visual Question Answering. In _CVPR_, 2017.
-- D. Teney, P. Anderson, X. He, and A. van den Hengel. Tips and tricks for visual question answering: Learnings from the 2017 challenge. CoRR, abs/1708.02711, 2017.
-- Z. Yu, J. Yu, C. Xiang, J. Fan, and D. Tao. Beyond bilinear: Generalized multimodal factorized high-order pooling for visual question answering. _TNNLS_, 2018.
-
-
-
+Pythia is licensed under BSD license available in [LICENSE](LICENSE) file
